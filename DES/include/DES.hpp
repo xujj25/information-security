@@ -77,7 +77,7 @@ int ip_inverse_table[64] =
     33, 1,  41, 9,  49, 17, 57, 25
 };
 
-int s_box[8][4][16] =
+char s_box[8][4][16] =
 {
     {
         { 14, 4, 13, 1, 2, 15, 11, 8, 3, 10, 6, 12, 5, 9, 0, 7 },
@@ -139,6 +139,18 @@ int p_table[32] =
     32, 27, 3,  9,
     19, 13, 30, 6,
     22, 11, 4,  25
+};
+
+int e_ext_table[48] =
+{
+    32, 1,  2,  3,  4,  5,
+    4,  5,  6,  7,  8,  9,
+    8,  9,  10, 11, 12, 13,
+    12, 13, 14, 15, 16, 17,
+    16, 17, 18, 19, 20, 21,
+    20, 21, 22, 23, 24, 25,
+    24, 25, 26, 27, 28, 29,
+    28, 29, 30, 31, 32, 1
 };
 
 template <typename DATA_BLOCK>
@@ -249,15 +261,71 @@ DATA_BLOCK32 P_permutation(DATA_BLOCK32 *src_data) {
 }
 
 DATA_BLOCK32 S_box_change(DATA_BLOCK48 *src_data) {
-
+    DATA_BLOCK32 resultBlock;
+    int row, col, i;
+    char highBits, lowBits;
+    for (i = 0; i < 8; i++) {
+        row = getBit(src_data, i * 6 + 5) * 2 + getBit(src_data, i * 6);
+        col = getBit(src_data, i * 6 + 4) * 8 +
+              getBit(src_data, i * 6 + 3) * 4 +
+              getBit(src_data, i * 6 + 2) * 2 +
+              getBit(src_data, i * 6 + 1);
+        if (i & 1) {
+            highBits = s_box[i][row][col];
+            resultBlock.data[i / 2] = (highBits << 4) + lowBits;
+        } else {
+            lowBits = s_box[i][row][col];
+        }
+    }
+    return resultBlock;
 }
-DATA_BLOCK48 E_extension(DATA_BLOCK32 src_data);
-DATA_BLOCK32 Feistel(DATA_BLOCK32 right_block, SUBKEY skey);
-void T_iteration(DATA_BLOCK64* src_data);
 
-
-void DES(KEY key, DATA_BLOCK64* src_data, DES_OPT opt) {
-    // key_schedule(key, opt);
-
+DATA_BLOCK48 E_extension(DATA_BLOCK32 *src_data) {
+    DATA_BLOCK48 resultBlock;
+    permutation(&resultBlock, src_data, e_ext_table);
+    return resultBlock;
 }
 
+template <typename DATA_BLOCK>
+void XOR(DATA_BLOCK *destBlock, DATA_BLOCK *otherBlock) {
+    int byteNum = sizeof(destBlock -> data);
+    int i;
+    for (i = 0; i < byteNum; i++)
+        (destBlock -> data)[i] ^= (otherBlock -> data)[i];
+}
+
+DATA_BLOCK32 Feistel(DATA_BLOCK32 *right_block, SUBKEY *skey) {
+    DATA_BLOCK48 extBlock = E_extension(right_block);
+    XOR(&extBlock, skey);
+    DATA_BLOCK32 resultBlock = S_box_change(&extBlock);
+    resultBlock = P_permutation(&resultBlock);
+    return resultBlock;
+}
+
+void T_iteration(DATA_BLOCK64* src_data) {
+    DATA_BLOCK32 leftBlock, rightBlock, tempBlock;
+    int i;
+    for (i = 0; i < 4; i++) {
+        leftBlock.data[i] = (src_data -> data)[i];
+        rightBlock.data[i] = (src_data -> data)[i + 4];
+    }
+    for (i = 0; i < 16; i++) {
+        tempBlock = Feistel(&rightBlock, &subkey_set[i]);
+        XOR(&leftBlock, &tempBlock);
+        tempBlock = rightBlock;
+        rightBlock = leftBlock;
+        leftBlock = tempBlock;
+    }
+    for (i = 0; i < 4; i++) {
+        (src_data -> data)[i] = rightBlock.data[i];
+        (src_data -> data)[i + 4] = leftBlock.data[i];
+    }
+}
+
+
+void DES(KEY *key, DATA_BLOCK64* src_data, DES_OPT opt) {
+    key_schedule(key, opt);
+    IP(src_data);
+    T_iteration(src_data);
+    IP_inverse(src_data);
+}
