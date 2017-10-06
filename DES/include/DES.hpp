@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 struct data_block64 {
     char data[8];
 };

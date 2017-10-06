@@ -3,52 +3,6 @@
 #include <string.h>
 #include "../include/DES.hpp"
 
-void 
-encryptWrite(DATA_BLOCK64& srcDataBlock, KEY& key, FILE *srcFp, FILE *destFp)
-{
-    int i = 0;
-    char bufChar;
-    while ((bufChar = fgetc(srcFp)) != EOF) {
-        srcDataBlock.data[i] = bufChar;
-        i++;
-        if (i == 8) {
-            DES(&key, &srcDataBlock, ENCRYPT);
-            for (i = 0; i < 8; i++)
-                fprintf(destFp, "%d ", (int)srcDataBlock.data[i]);
-
-            i = 0;
-        }
-    }
-    for (; i < 8; i++)
-        srcDataBlock.data[i] = '\0';
-    DES(&key, &srcDataBlock, ENCRYPT);
-    for (i = 0; i < 8; i++)
-        fprintf(destFp, "%d ", (int)srcDataBlock.data[i]);
-}
-
-void 
-decryptWrite(DATA_BLOCK64& srcDataBlock, KEY& key, FILE *srcFp, FILE *destFp)
-{
-    int i = 0;
-    int bufCode;
-    while (fscanf(srcFp, "%d", &bufCode) != EOF) {
-        srcDataBlock.data[i] = (char)bufCode;
-        i++;
-        if (i == 8) {
-            DES(&key, &srcDataBlock, DECRYPT);
-            for (i = 0; i < 8; i++)
-                fputc(srcDataBlock.data[i], destFp);
-
-            i = 0;
-        }
-    }
-    for (; i < 8; i++)
-        srcDataBlock.data[i] = '\0';
-    DES(&key, &srcDataBlock, DECRYPT);
-    for (i = 0; i < 8; i++)
-        fputc(srcDataBlock.data[i], destFp);
-}
-
 int main(void)
 {
     FILE* fp = fopen("key_64bits", "r");
@@ -97,10 +51,22 @@ int main(void)
                 return -1;
             }
             
-            if (opt == ENCRYPT)
-                encryptWrite(srcDataBlock, key, fp, outfp);
-            else
-                decryptWrite(srcDataBlock, key, fp, outfp);
+            i = 0;
+            while ((buffer[i] = fgetc(fp)) != EOF) {
+                srcDataBlock.data[i] = buffer[i];
+                i++;
+                if (i == 8) {
+                    DES(&key, &srcDataBlock, opt);
+                    for (i = 0; i < 8; i++)
+                        fputc(srcDataBlock.data[i], outfp);
+                    i = 0;
+                }
+            }
+            for (; i < 8; i++)
+                srcDataBlock.data[i] = ' ';
+            DES(&key, &srcDataBlock, opt);
+            for (i = 0; i < 8; i++)
+                fputc(srcDataBlock.data[i], outfp);
 
             fclose(fp);
             fclose(outfp);
@@ -112,3 +78,4 @@ int main(void)
     }
     return 0;
 }
+
