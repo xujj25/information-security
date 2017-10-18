@@ -1,9 +1,9 @@
-main: test.o md5.o
-	gcc -o main test.o md5.o -g
-test.o: test.c
-	gcc -c -o test.o test.c -g
-md5.o: md5.c md5.h
-	gcc -c -o md5.o md5.c -g
+bin/main: build/test.o build/md5.o
+	gcc -o bin/main build/* -g
+build/test.o: src/test.c
+	gcc -c -o build/test.o src/test.c -g -I./include
+build/md5.o: src/md5.c include/md5.h
+	gcc -c -o build/md5.o src/md5.c -g -I./include
 
 clean:
-	rm *.o main
+	rm build/* bin/*
