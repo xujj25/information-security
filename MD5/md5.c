@@ -114,7 +114,7 @@ void mdCompress(TEMP_DT* tempData) {
     d = tempData -> d;
     int funcIdx, paceIdx;
     for (funcIdx = 0; funcIdx < 4; funcIdx++)
-        for (paceIdx = 0; paceIdx < 4; paceIdx++)
+        for (paceIdx = 0; paceIdx < 16; paceIdx++)
             onePaceCalc(tempData, funcIdx, paceIdx);
     tempData -> a += a;
     tempData -> b += b;
@@ -135,18 +135,27 @@ void count2Bits(unsigned char* countBits, unsigned int count) {
 }
 
 void hash(TEMP_DT* tempData, unsigned char* curPtr, unsigned int len) {
+    if (len > 0)
+        tempData -> count += len * 8;
     tempDataBufCpy(tempData -> msgBlock, curPtr, len);
     if (len < 64) {
         unsigned char countBits[8];
+        memset(countBits, 0, 8);
+        int paddingLen = (len < 56) ? 56 - len : 120 - len;
         count2Bits(countBits, (unsigned int)tempData -> count);
         count2Bits((unsigned char*)&countBits[4], (unsigned int)(tempData -> count >> 32));
-        tempDataBufCpy((unsigned char*)&(tempData -> msgBlock)[len],
-            PADDING, (len < 56) ? 56 - len : 120 - len);
-        tempDataBufCpy((unsigned char*)&(tempData -> msgBlock)[len],
-            countBits, 8);
+        if (paddingLen <= 56) {
+            tempDataBufCpy((unsigned char*)&(tempData -> msgBlock)[len],
+                PADDING, paddingLen);
+        } else {
+            tempDataBufCpy((unsigned char*)&(tempData -> msgBlock)[len],
+                PADDING, paddingLen - 56);
+            mdCompress(tempData);
+            tempDataBufCpy(tempData -> msgBlock, PADDING + paddingLen - 56, 56);
+        }
+        tempDataBufCpy((unsigned char*)&(tempData -> msgBlock)[56], countBits, 8);
     }
     mdCompress(tempData);
-    tempData -> count += len * 8;
 }
 
 void init(TEMP_DT* tempData) {
@@ -155,15 +164,16 @@ void init(TEMP_DT* tempData) {
     tempData -> c = 0x98badcfe;
     tempData -> d = 0x10325476;
     tempData -> count = 0;
+    memset(tempData -> msgBlock, 0, 64);
 }
 
 void digestHexPrint(unsigned char* digest) {
     int i;
     for (i = 0; i < 16; i++) {
-        printf("%x", digest[i] & 0xF0);
-        printf("%x", digest[i] & 0xF);
+        // user mode
+        printf("%01x", (digest[i] >> 4) & 0xF);
+        printf("%01x", digest[i] & 0xF);
     }
-    printf("\n");
 }
 
 void msgDigest(const char* string)  {
@@ -175,9 +185,11 @@ void msgDigest(const char* string)  {
         hash(&tempData, (unsigned char*)&string[tempData.count >> 3], 64);
     hash(&tempData, (unsigned char*)&string[tempData.count >> 3], notHashLen);
     unsigned char digest[16];
+    memset(digest, 0, 16);
     count2Bits(digest, tempData.a);
-    count2Bits((unsigned char*)&digest[4], tempData.b);
-    count2Bits((unsigned char*)&digest[8], tempData.c);
-    count2Bits((unsigned char*)&digest[12], tempData.d);
+    count2Bits(&digest[4], tempData.b);
+    count2Bits(&digest[8], tempData.c);
+    count2Bits(&digest[12], tempData.d);
+
     digestHexPrint(digest);
 }

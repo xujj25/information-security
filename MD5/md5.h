@@ -22,4 +22,5 @@ void tempDataBufCpy(unsigned char* buf, unsigned char* srcPtr, unsigned int len)
 void count2Bits(unsigned char* countBits, unsigned int count);
 void hash(TEMP_DT* tempData, unsigned char* curPtr, unsigned int len);
 void init(TEMP_DT* tempData);
+void digestHexPrint(unsigned char* digest);
 void msgDigest(const char* string);
