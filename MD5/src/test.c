@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <malloc.h>
+#include <string.h>
 #include "md5.h"
 
 
@@ -16,15 +17,21 @@ MD5 ("12345678901234567890123456789012345678901234567890123456789012345678901234
 */
 int main(int argc, char const *argv[])
 {
-    int size;
+    int size, index;
+    char inputChar;
     char* buffer;
     printf("Please input buffer size: ");
     scanf("%d", &size);
-    buffer = (char*)malloc(size);
+    buffer = (char*)malloc(60);
     printf("PLease input the string you want to do message digesting:\n");
-    scanf("%s", buffer);
+    fgets(buffer, 60, stdin);  // clear the input buffer before the user input
+    free(buffer);
+    buffer = (char*)malloc(size);
+    while ((inputChar = getchar()) != EOF && inputChar != '\n' && index != size - 1)
+        buffer[index++] = inputChar;
+    buffer[index] = '\0';
     printf("Result:\n");
-    msgDigest(buffer);    
+    msgDigest(buffer);
     printf("\n");
     free(buffer);
     return 0;
